@@ -16,6 +16,9 @@ app.add_middleware(
 
 @app.post("/upload-csv/")
 async def upload_csv(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".csv") or file.content_type != "text/csv":
+        return {"error": "Only .csv files are accepted."}
+
     contents = await file.read()
     df = pd.read_csv(io.BytesIO(contents))
     preview = df.head(100).to_dict(orient="records")
