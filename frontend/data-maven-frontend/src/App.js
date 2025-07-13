@@ -1,63 +1,84 @@
 import React, { useState } from "react";
 
 function App() {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState([]);
-  const [schema, setSchema] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+    const [file, setFile] = useState(null);
+    const [preview, setPreview] = useState([]);
+    const [schema, setSchema] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-  const handleFileChange = (e) => {
-    const selected = e.target.files[0];
-    if (selected && selected.name.endsWith(".csv")) {
-      setFile(selected);
-      setPreview([]);
-      setSchema(null);
-      setError("");
-    } else {
-      setError("Only .csv files are supported.");
-    }
-  };
+    console.log("Component rendered");
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.name.endsWith(".csv")) {
-      setFile(droppedFile);
-      setPreview([]);
-      setSchema(null);
-      setError("");
-    } else {
-      setError("Only .csv files are supported.");
-    }
-  };
+    const handleFileChange = (e) => {
+        const selected = e.target.files[0];
+        console.log("File changed:", selected?.name);
+        if (selected && selected.name.endsWith(".csv")) {
+            setFile(selected);
+            setPreview([]);
+            setSchema(null);
+            setError("");
+        } else {
+            setError("Only .csv files are supported.");
+        }
+    };
 
-  const uploadFile = async () => {
-    if (!file) {
-      setError("Please select a CSV file first");
-      return;
-    }
-    setLoading(true);
-    setError("");
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const droppedFile = e.dataTransfer.files[0];
+        console.log("File dropped:", droppedFile?.name);
+        if (droppedFile && droppedFile.name.endsWith(".csv")) {
+            setFile(droppedFile);
+            setPreview([]);
+            setSchema(null);
+            setError("");
+        } else {
+            setError("Only .csv files are supported.");
+        }
+    };
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const uploadFile = async () => {
+        console.log("Upload button clicked");
+        if (!file) {
+            setError("Please select a CSV file first");
+            return;
+        }
+        setLoading(true);
+        setError("");
+        console.log("Starting upload for:", file.name);
 
-    try {
-      const res = await fetch("http://127.0.0.1:8000/upload-csv/", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Error: ${res.statusText}`);
-      const data = await res.json();
-      setPreview(data.preview);
-      setSchema(data.schema);
-    } catch (err) {
-      setError(err.message || "Upload failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+            controller.abort();
+            console.error("Fetch aborted due to timeout");
+            setError("Upload timed out");
+            setLoading(false);
+        }, 100000000000000); // 10 seconds timeout
+
+        try {
+            const res = await fetch("http://localhost:8000/upload-csv/", {
+                method: "POST",
+                body: formData,
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            console.log("Response received:", res.status);
+            if (!res.ok) throw new Error(`Error: ${res.statusText}`);
+            const data = await res.json();
+            console.log("Response data:", data);
+            setPreview(data.preview);
+            setSchema(data.schema);
+        } catch (err) {
+            clearTimeout(timeout);
+            console.error("Upload failed:", err);
+            setError(err.message || "Upload failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     return (
         <div
@@ -73,7 +94,6 @@ function App() {
                 DataMaven: CSV Analyzer
             </h1>
 
-            {/* Drag-and-Drop Box */}
             <div
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
@@ -97,7 +117,6 @@ function App() {
                 )}
             </div>
 
-            {/* File Input + Button */}
             <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
                 <input
                     type="file"
@@ -126,10 +145,8 @@ function App() {
                 </button>
             </div>
 
-            {/* Error */}
             {error && <p style={{ color: "crimson", marginBottom: 20 }}>{error}</p>}
 
-            {/* Schema */}
             {schema && (
                 <>
                     <h2 style={{ color: "#2c3e50", marginTop: 30 }}>📊 Dataset Schema</h2>
@@ -153,7 +170,6 @@ function App() {
                 </>
             )}
 
-            {/* Preview Table */}
             {preview.length > 0 && (
                 <>
                     <h2 style={{ color: "#2c3e50", marginTop: 30 }}>
