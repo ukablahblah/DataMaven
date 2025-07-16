@@ -4,18 +4,19 @@ function App() {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState([]);
     const [schema, setSchema] = useState(null);
+    const [filename, setFilename] = useState("");
+    const [supabaseUrl, setSupabaseUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    console.log("Component rendered");
-
     const handleFileChange = (e) => {
         const selected = e.target.files[0];
-        console.log("File changed:", selected?.name);
         if (selected && selected.name.endsWith(".csv")) {
             setFile(selected);
             setPreview([]);
             setSchema(null);
+            setFilename("");
+            setSupabaseUrl("");
             setError("");
         } else {
             setError("Only .csv files are supported.");
@@ -25,11 +26,12 @@ function App() {
     const handleDrop = (e) => {
         e.preventDefault();
         const droppedFile = e.dataTransfer.files[0];
-        console.log("File dropped:", droppedFile?.name);
         if (droppedFile && droppedFile.name.endsWith(".csv")) {
             setFile(droppedFile);
             setPreview([]);
             setSchema(null);
+            setFilename("");
+            setSupabaseUrl("");
             setError("");
         } else {
             setError("Only .csv files are supported.");
@@ -37,41 +39,28 @@ function App() {
     };
 
     const uploadFile = async () => {
-        console.log("Upload button clicked");
         if (!file) {
             setError("Please select a CSV file first");
             return;
         }
         setLoading(true);
         setError("");
-        console.log("Starting upload for:", file.name);
 
         const formData = new FormData();
         formData.append("file", file);
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => {
-            controller.abort();
-            console.error("Fetch aborted due to timeout");
-            setError("Upload timed out");
-            setLoading(false);
-        }, 100000000000000); // 10 seconds timeout
 
         try {
             const res = await fetch("http://localhost:8000/upload-csv/", {
                 method: "POST",
                 body: formData,
-                signal: controller.signal,
             });
-            clearTimeout(timeout);
-            console.log("Response received:", res.status);
             if (!res.ok) throw new Error(`Error: ${res.statusText}`);
             const data = await res.json();
-            console.log("Response data:", data);
             setPreview(data.preview);
             setSchema(data.schema);
+            setFilename(data.filename);
+            setSupabaseUrl(data.supabase_url);
         } catch (err) {
-            clearTimeout(timeout);
             console.error("Upload failed:", err);
             setError(err.message || "Upload failed");
         } finally {
@@ -79,17 +68,8 @@ function App() {
         }
     };
 
-
     return (
-        <div
-            style={{
-                maxWidth: 900,
-                margin: "40px auto",
-                padding: 30,
-                fontFamily: "Segoe UI, sans-serif",
-                color: "#222",
-            }}
-        >
+        <div style={{ maxWidth: 900, margin: "40px auto", padding: 30, fontFamily: "Segoe UI, sans-serif", color: "#222" }}>
             <h1 style={{ textAlign: "center", marginBottom: 30, color: "#2c3e50" }}>
                 DataMaven: CSV Analyzer
             </h1>
@@ -109,9 +89,7 @@ function App() {
                 }}
             >
                 {file ? (
-                    <p>
-                        Selected: <strong>{file.name}</strong>
-                    </p>
+                    <p>Selected: <strong>{file.name}</strong></p>
                 ) : (
                     <p>Drag and drop your CSV file here</p>
                 )}
@@ -147,25 +125,28 @@ function App() {
 
             {error && <p style={{ color: "crimson", marginBottom: 20 }}>{error}</p>}
 
+            {filename && (
+                <p style={{ color: "#2c3e50", marginTop: 10 }}>
+                    <strong>Filename on server:</strong> {filename}
+                </p>
+            )}
+
+            {supabaseUrl && (
+                <p style={{ color: "#2c3e50", marginTop: 10 }}>
+                    <strong>Download Link:</strong>{" "}
+                    <a href={supabaseUrl} target="_blank" rel="noopener noreferrer">
+                        {supabaseUrl}
+                    </a>
+                </p>
+            )}
+
             {schema && (
                 <>
                     <h2 style={{ color: "#2c3e50", marginTop: 30 }}>📊 Dataset Schema</h2>
                     <ul style={{ listStyleType: "disc", paddingLeft: 20 }}>
-                        <li>
-                            <strong>Columns:</strong> {schema.columns.join(", ")}
-                        </li>
-                        <li>
-                            <strong>Types:</strong>{" "}
-                            {Object.entries(schema.types)
-                                .map(([k, v]) => `${k}: ${v}`)
-                                .join(", ")}
-                        </li>
-                        <li>
-                            <strong>Null counts:</strong>{" "}
-                            {Object.entries(schema.null_counts)
-                                .map(([k, v]) => `${k}: ${v}`)
-                                .join(", ")}
-                        </li>
+                        <li><strong>Columns:</strong> {schema.columns.join(", ")}</li>
+                        <li><strong>Types:</strong> {Object.entries(schema.types).map(([k, v]) => `${k}: ${v}`).join(", ")}</li>
+                        <li><strong>Null counts:</strong> {Object.entries(schema.null_counts).map(([k, v]) => `${k}: ${v}`).join(", ")}</li>
                     </ul>
                 </>
             )}
@@ -176,27 +157,11 @@ function App() {
                         🧾 Preview (first {preview.length} rows)
                     </h2>
                     <div style={{ overflowX: "auto" }}>
-                        <table
-                            style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                marginTop: 10,
-                                fontSize: 14,
-                                background: "white",
-                            }}
-                        >
+                        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 14, background: "white" }}>
                             <thead>
                             <tr>
                                 {Object.keys(preview[0]).map((col) => (
-                                    <th
-                                        key={col}
-                                        style={{
-                                            border: "1px solid #ccc",
-                                            padding: "8px 12px",
-                                            background: "#ecf0f1",
-                                            textAlign: "left",
-                                        }}
-                                    >
+                                    <th key={col} style={{ border: "1px solid #ccc", padding: "8px 12px", background: "#ecf0f1", textAlign: "left" }}>
                                         {col}
                                     </th>
                                 ))}
@@ -206,13 +171,7 @@ function App() {
                             {preview.map((row, i) => (
                                 <tr key={i}>
                                     {Object.values(row).map((val, j) => (
-                                        <td
-                                            key={j}
-                                            style={{
-                                                border: "1px solid #ddd",
-                                                padding: "8px 12px",
-                                            }}
-                                        >
+                                        <td key={j} style={{ border: "1px solid #ddd", padding: "8px 12px" }}>
                                             {val?.toString()}
                                         </td>
                                     ))}

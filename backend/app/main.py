@@ -74,5 +74,6 @@ async def upload_csv(file: UploadFile = File(...)):
     return {
         "preview": preview,
         "schema": schema,
-        "supabase_url": public_url
+        "supabase_url": public_url,
+        "filename": filename
     }
